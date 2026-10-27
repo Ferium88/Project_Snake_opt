@@ -1,0 +1,85 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "C:/msys64/ucrt64/bin/gcc.exe",
+            "args": [
+                "-std=c99",
+                "-g",
+                "${workspaceFolder}/src/main.c",
+                // "${workspaceFolder}/src/glad.c",
+                "-o",
+                "${workspaceFolder}/src/main.exe",
+                "-IC:/msys64/ucrt64/include",
+                "-I${workspaceFolder}/include",
+                "-LC:/msys64/ucrt64/lib",
+                "-lglfw3",
+                "-lopengl32",
+                "-lgdi32"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "type": "cppbuild",
+            "label": "C/C++: gcc.exe сборка активного файла",
+            "command": "C:/msys64/ucrt64/bin/gcc.exe",
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}\\${fileBasenameNoExtension}.exe"
+            ],
+            "options": {
+                "cwd": "C:/msys64/ucrt64/bin"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Задача создана отладчиком."
+        }
+    ]
+}
+
+
+// {
+//     "version": "2.0.0",
+//     "tasks": [
+//         {
+//             "label": "build",
+//             "type": "shell",
+//             "command": "C:/msys64/ucrt64/bin/gcc.exe",
+//             "args": [
+//                 "-std=c99",
+//                 "-g",
+//                 "${workspaceFolder}/src/main.c",
+//                 "${workspaceFolder}/src/glad.c",
+//                 "-o",
+//                 "${workspaceFolder}/src/main.exe",
+//                 "-IC:/msys64/ucrt64/include",
+//                 "-I${workspaceFolder}/include",
+//                 "-LC:/msys64/ucrt64/lib",
+//                 "-lglfw3",
+//                 "-lopengl32",
+//                 "-lgdi32"
+//             ],
+//             "group": {
+//                 "kind": "build",
+//                 "isDefault": true
+//             },
+//             "problemMatcher": ["$gcc"]
+//         }
+//     ]
+// }
