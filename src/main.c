@@ -31,9 +31,9 @@ typedef enum
 
 typedef enum // уровень сложности
 {
-    LEVEL_WRAP, // через края (телепорт)
+    LEVEL_WRAP,  // через края (телепорт)
     LEVEL_WALLS, // стенки воркуг поля
-    LEVEL_MAZE // лабиринт
+    LEVEL_MAZE   // лабиринт
 } GameMode;
 
 typedef struct
@@ -57,9 +57,7 @@ typedef struct
     FoodType type;
 } Food;
 
-
 GameMode mode = LEVEL_WRAP;
-
 
 Direction dir = RIGHT;
 
@@ -91,7 +89,6 @@ int snakeLength = 3; // начальная длина
 
 double lastTime = 0;
 
-
 // рисование текста
 void drawText(float x, float y, const char *text, float scale)
 {
@@ -99,23 +96,22 @@ void drawText(float x, float y, const char *text, float scale)
 
     // num_quads - количество квадратов, из которых составляются буквы
     int num_quads = stb_easy_font_print(
-        0, // x
-        0, // y
-        (char*)text, // текст
-        NULL, // цвет
-        buffer, // куда сохранять координаты точек
-        sizeof(buffer)
-    );
+        0,            // x
+        0,            // y
+        (char *)text, // текст
+        NULL,         // цвет
+        buffer,       // куда сохранять координаты точек
+        sizeof(buffer));
 
     // Для изменения размера текста
-    glPushMatrix(); // сохраняет текущую матрицу трансформаций (позицию/масштаб/поворот)
-    glTranslatef(x, y, 0); // переноси текст в точку (x, y)
+    glPushMatrix();            // сохраняет текущую матрицу трансформаций (позицию/масштаб/поворот)
+    glTranslatef(x, y, 0);     // переноси текст в точку (x, y)
     glScalef(scale, scale, 1); // маштабируем текст
 
     glColor3f(1, 1, 1);
 
-    glEnableClientState(GL_VERTEX_ARRAY); // рисовать через массив вершин
-    glVertexPointer(2, GL_FLOAT, 16, buffer); // указание, где лежат вершины. 2 - задаём координаты двумя числами (x, y) 
+    glEnableClientState(GL_VERTEX_ARRAY);     // рисовать через массив вершин
+    glVertexPointer(2, GL_FLOAT, 16, buffer); // указание, где лежат вершины. 2 - задаём координаты двумя числами (x, y)
 
     glDrawArrays(GL_QUADS, 0, num_quads * 4); // num_quads * 4 - количество вершин, которые нужно отрисовать
 
@@ -123,13 +119,15 @@ void drawText(float x, float y, const char *text, float scale)
     glPopMatrix();
 }
 
-const char* getModeName()
+const char *getModeName()
 {
-    if (mode == LEVEL_WRAP) {
+    if (mode == LEVEL_WRAP)
+    {
         return "WRAP";
     }
 
-    if (mode == LEVEL_WALLS) {
+    if (mode == LEVEL_WALLS)
+    {
         return "WALLS";
     }
 
@@ -139,7 +137,8 @@ const char* getModeName()
 int isWall(int x, int y)
 {
 
-    if (mode == LEVEL_WRAP) {
+    if (mode == LEVEL_WRAP)
+    {
         return 0;
     }
 
@@ -155,38 +154,45 @@ int isWall(int x, int y)
         int right_b = 18;
         int top_b = 6;
         int bottom_b = 17;
-        
+
         int left_s = left_b + 3;
         int right_s = right_b - 3;
         int top_s = top_b + 3;
         int bottom_s = bottom_b;
 
         // внешние стены
-        if (x == 0 || x == WIDTH - 1 || y == 0 || y == HEIGHT - 1) {
+        if (x == 0 || x == WIDTH - 1 || y == 0 || y == HEIGHT - 1)
+        {
             return 1;
         }
 
         // левая палочка
-        if (x == left_b && y >= top_b && y <= bottom_b){
+        if (x == left_b && y >= top_b && y <= bottom_b)
+        {
             return 1;
         }
-        if (x == left_s && y >= top_s && y <= bottom_s){
+        if (x == left_s && y >= top_s && y <= bottom_s)
+        {
             return 1;
         }
 
         // правая палочка
-        if (x == right_b && y >= top_b && y <= bottom_b){
+        if (x == right_b && y >= top_b && y <= bottom_b)
+        {
             return 1;
         }
-        if (x == right_s && y >= top_s && y <= bottom_s){
+        if (x == right_s && y >= top_s && y <= bottom_s)
+        {
             return 1;
         }
 
         // верхняя перекладина
-        if (y == top_b && x >= left_b && x <= right_b){
+        if (y == top_b && x >= left_b && x <= right_b)
+        {
             return 1;
         }
-        if (y == top_s && x >= left_s && x <= right_s){
+        if (y == top_s && x >= left_s && x <= right_s)
+        {
             return 1;
         }
     }
@@ -202,12 +208,36 @@ int isSnakeCell(int x, int y) // внутри змейки
 {
     for (int i = 0; i < snakeLength; i++)
     {
-        if (snake[i].x == x && snake[i].y == y) {
+        if (snake[i].x == x && snake[i].y == y)
+        {
             return 1;
         }
     }
 
     return 0;
+}
+
+void benchmarkSnakeCell()
+{
+    int lengths[] = {3, 100, 300, 600};
+    int repeats = 1000000;
+    volatile int result = 0;
+
+    for (int k = 0; k < 4; k++)
+    {
+        snakeLength = lengths[k];
+
+        double start = glfwGetTime();
+
+        for (int i = 0; i < repeats; i++)
+        {
+            result += isSnakeCell(-1, -1);
+        }
+
+        double end = glfwGetTime();
+
+        printf("Length: %d, Time: %.3f us\n", snakeLength, (end - start) * 1000000.0 / repeats);
+    }
 }
 
 int isFreeCell(int x, int y)
@@ -222,7 +252,7 @@ void initSnake()
     while (!ok) // пока не нашли подходящее место
     {
         // случайная точка внутри поля, отступая SAFE_MARGIN от всех краёв
-        int x = SAFE_MARGIN + rand() % (WIDTH - 2 * SAFE_MARGIN); 
+        int x = SAFE_MARGIN + rand() % (WIDTH - 2 * SAFE_MARGIN);
         int y = SAFE_MARGIN + rand() % (HEIGHT - 2 * SAFE_MARGIN);
 
         ok = 1;
@@ -230,26 +260,30 @@ void initSnake()
         // проверяем тело змейки: голова + 2 сегмента хвоста
         for (int i = 0; i < 3; i++)
         {
-            if (!isFreeCell(x - i, y)){
-                    ok = 0;
-                    break;
-                }
+            if (!isFreeCell(x - i, y))
+            {
+                ok = 0;
+                break;
+            }
         }
 
-        if (!ok) {
+        if (!ok)
+        {
             continue;
         }
 
         // проверяем свободное место перед головой, чтобы змейка не умерла сразу после появления
         for (int i = 1; i <= SAFE_MARGIN; i++)
         {
-            if (!isFreeCell(x + i, y)){
+            if (!isFreeCell(x + i, y))
+            {
                 ok = 0;
                 break;
             }
         }
 
-        if (!ok) {
+        if (!ok)
+        {
             continue;
         }
 
@@ -265,7 +299,6 @@ void initSnake()
     }
 }
 
-
 void spawnFood()
 {
     int ok = 0;
@@ -278,7 +311,8 @@ void spawnFood()
         food.x = rand() % WIDTH;
         food.y = rand() % HEIGHT;
 
-        if (isFreeCell(food.x, food.y)) {
+        if (isFreeCell(food.x, food.y))
+        {
             ok = 1;
         }
     }
@@ -291,20 +325,23 @@ void spawnFood()
     }
 
     int r = rand() % 100;
-    if (r < 60) {
+    if (r < 60)
+    {
         food.type = FOOD_NORMAL;
     }
-    else if (r < 80) {
+    else if (r < 80)
+    {
         food.type = FOOD_BONUS;
     }
-    else if (r < 90) {
+    else if (r < 90)
+    {
         food.type = FOOD_SLOW;
     }
-    else {
+    else
+    {
         food.type = FOOD_SPEED;
     }
 }
-
 
 void checkSelfCollision() // проверка столкновении головы с телом
 {
@@ -330,32 +367,40 @@ void update()
     }
 
     // двигаем голову
-    if (dir == RIGHT){
+    if (dir == RIGHT)
+    {
         snake[0].x++;
     }
-    if (dir == LEFT){
+    if (dir == LEFT)
+    {
         snake[0].x--;
     }
-    if (dir == UP){
+    if (dir == UP)
+    {
         snake[0].y--;
     }
-    if (dir == DOWN){
+    if (dir == DOWN)
+    {
         snake[0].y++;
     }
 
     // телепорт в режиме без стенок
     if (mode == LEVEL_WRAP)
     {
-        if (snake[0].x < 0) {
+        if (snake[0].x < 0)
+        {
             snake[0].x = WIDTH - 1;
         }
-        if (snake[0].x >= WIDTH) {
+        if (snake[0].x >= WIDTH)
+        {
             snake[0].x = 0;
         }
-        if (snake[0].y < 0) {
+        if (snake[0].y < 0)
+        {
             snake[0].y = HEIGHT - 1;
         }
-        if (snake[0].y >= HEIGHT) {
+        if (snake[0].y >= HEIGHT)
+        {
             snake[0].y = 0;
         }
     }
@@ -388,10 +433,12 @@ void update()
         speed += foodSpeed[t];
 
         // ограничение скорости
-        if (speed < 0.05) {
+        if (speed < 0.05)
+        {
             speed = 0.05;
         }
-        if (speed > 0.5) {
+        if (speed > 0.5)
+        {
             speed = 0.5;
         }
 
@@ -445,7 +492,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         if (key == GLFW_KEY_ESCAPE)
         {
             // закрытие окна
-            glfwSetWindowShouldClose(window, GLFW_TRUE); 
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
 
         if (canChangeDirection)
@@ -559,7 +606,6 @@ void drawGrid()
     glEnd();
 }
 
-
 void drawWalls()
 {
     if (mode == LEVEL_WALLS || mode == LEVEL_MAZE)
@@ -656,7 +702,7 @@ int main(void)
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    
+
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // запрет изменения размера окна
 
     // Создание окна
@@ -668,33 +714,53 @@ int main(void)
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(window); // рисовать именно в окне "window"
-    glfwSetKeyCallback(window, key_callback); // обработка нажатия клавиш
+    glfwMakeContextCurrent(window);                // рисовать именно в окне "window"
+    glfwSetKeyCallback(window, key_callback);      // обработка нажатия клавиш
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT); // рисовать на всю область окна
 
     // 2D координаты
-    glMatrixMode(GL_PROJECTION); // Матрица, отвечающая за систему координат, отображение мира на экране
-    glLoadIdentity(); // обнуляет текущую матрицу
+    glMatrixMode(GL_PROJECTION);                       // Матрица, отвечающая за систему координат, отображение мира на экране
+    glLoadIdentity();                                  // обнуляет текущую матрицу
     glOrtho(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1, 1); // left, right, top, bottom, z, z. Создаём 2D-плоскость
 
     glMatrixMode(GL_MODELVIEW); // возврат к матрице объектов (используется для текста)
     glLoadIdentity();
 
-    srand(time(NULL)); 
-    
+    srand(time(NULL));
+    // benchmarkSnakeCell();
+    // return 0;
+
     // задаём начальное положение змейки и еды
     initSnake();
     spawnFood();
 
+    double totalFrameTime = 0.0;
+    unsigned long long frameCount = 0;
+    double profilingStart = glfwGetTime();
+
     while (!glfwWindowShouldClose(window))
     {
-        glClearColor(0, 0, 0, 1); 
-        glClear(GL_COLOR_BUFFER_BIT); // очистка экрана
+        double frameStart = glfwGetTime();
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);       // очистка экрана
         double currentTime = glfwGetTime(); // текущее время
 
-        if (!gameOver && currentTime - lastTime > speed) // если времени прошло больше чем speed 
+        if (!gameOver && currentTime - lastTime > speed)
         {
             update();
+            lastTime = currentTime;
+        }
+
+        if (!gameOver && currentTime - lastTime > speed) // если времени прошло больше чем speed
+        {
+            double start = glfwGetTime();
+
+            update();
+
+            double end = glfwGetTime();
+
+            printf("update: %.3f us\n", (end - start) * 1000000.0);
+
             lastTime = currentTime;
         }
 
@@ -714,7 +780,25 @@ int main(void)
         }
 
         glfwSwapBuffers(window); // меняет местами скрытый и отображаемый буфер кадра
-        glfwPollEvents(); // обрабатывает нажатия клавиш, закрытие окна.
+        glfwPollEvents();        // обрабатывает нажатия клавиш, закрытие окна.
+
+
+        double frameEnd = glfwGetTime();
+
+        totalFrameTime += frameEnd - frameStart;
+        frameCount++;
+
+        if (frameEnd - profilingStart >= 5.0)
+        {
+            double averageFrameTime = totalFrameTime / frameCount;
+            double fps = frameCount / totalFrameTime;
+
+            printf("Average frame time: %.3f ms\n", averageFrameTime * 1000.0);
+
+            totalFrameTime = 0.0;
+            frameCount = 0;
+            profilingStart = frameEnd;
+        }
     }
 
     glfwDestroyWindow(window);
