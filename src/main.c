@@ -85,7 +85,8 @@ int score = 0;
 int growCount = 0;
 
 Segment snake[MAX_LENGTH];
-int snakeLength = 3; // начальная длина
+int snakeLength = 3;               // начальная длина
+int occupied[WIDTH][HEIGHT] = {0}; // обозначает занятость клетки по координатам
 
 double lastTime = 0;
 
@@ -204,40 +205,58 @@ int isInsideField(int x, int y) // внутри поля
     return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
 }
 
-int isSnakeCell(int x, int y) // внутри змейки
+int isSnakeCell(int x, int y)
 {
-    for (int i = 0; i < snakeLength; i++)
+    if (!isInsideField(x, y))
     {
-        if (snake[i].x == x && snake[i].y == y)
-        {
-            return 1;
-        }
+        return 0;
     }
 
-    return 0;
+    return occupied[x][y] > 0;
 }
 
 void benchmarkSnakeCell()
 {
     int lengths[] = {3, 100, 300, 600};
     int repeats = 1000000;
-    volatile int result = 0;
+    int result = 0;
 
     for (int k = 0; k < 4; k++)
     {
         snakeLength = lengths[k];
 
+        // очищаем массив занятых клеток
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                occupied[x][y] = 0;
+            }
+        }
+
+        // создаём змейку заданной длины
+        for (int i = 0; i < snakeLength; i++)
+        {
+            snake[i].x = i % WIDTH;
+            snake[i].y = i / WIDTH;
+
+            occupied[snake[i].x][snake[i].y] = 1;
+        }
+        // измеряем среднее время одной проверки свободной клетки
         double start = glfwGetTime();
 
         for (int i = 0; i < repeats; i++)
         {
-            result += isSnakeCell(-1, -1);
+            result += isSnakeCell(WIDTH - 1, HEIGHT - 1);
         }
 
         double end = glfwGetTime();
+        double averageCallTime = (end - start) * 1000000.0 / repeats;
 
-        printf("Length: %d, Time: %.3f us\n", snakeLength, (end - start) * 1000000.0 / repeats);
+        // выводим результаты
+        printf("Length: %d | isSnakeCell: %.4f us/call\n", snakeLength, averageCallTime);
     }
+    printf("Result: %d\n", result);
 }
 
 int isFreeCell(int x, int y)
@@ -296,6 +315,11 @@ void initSnake()
 
         snake[2].x = x - 2;
         snake[2].y = y;
+
+        for (int i = 0; i < snakeLength; i++) // помечаем занятые клетки
+        {
+            occupied[snake[i].x][snake[i].y] = 1;
+        }
     }
 }
 
@@ -343,15 +367,24 @@ void spawnFood()
     }
 }
 
-void checkSelfCollision() // проверка столкновении головы с телом
+void checkSelfCollision(Segment oldTail) // проверка столкновении головы с телом
 {
-    for (int i = 1; i < snakeLength; i++)
+    int x = snake[0].x;
+    int y = snake[0].y;
+
+    // получаем количество сегментов в клетке головы
+    int count = occupied[x][y];
+
+    // учитываем, что старый хвост покинул клетку
+    if (x == oldTail.x && y == oldTail.y)
     {
-        if (snake[0].x == snake[i].x && snake[0].y == snake[i].y)
-        {
-            gameOver = 1;
-            break;
-        }
+        count--;
+    }
+
+    // проверяем столкновение с телом
+    if (count > 0)
+    {
+        gameOver = 1;
     }
 }
 
@@ -359,6 +392,9 @@ void update()
 {
     // защита от двойного ввода за один тик
     canChangeDirection = 1;
+
+    // сохраняем координаты старого хвоста
+    Segment oldTail = snake[snakeLength - 1];
 
     // сдвигаем тело
     for (int i = snakeLength - 1; i > 0; i--)
@@ -406,19 +442,35 @@ void update()
     }
 
     // проверка столкновения головы со стеной
-    if (mode != LEVEL_WRAP && isWall(snake[0].x, snake[0].y))
+    if (!isInsideField(snake[0].x, snake[0].y) || (mode != LEVEL_WRAP && isWall(snake[0].x, snake[0].y)))
     {
         gameOver = 1;
         return;
     }
     // проверка столкновения головы с телом
-    checkSelfCollision();
+    checkSelfCollision(oldTail);
+    if (gameOver)
+    {
+        return;
+    }
 
+    // освобождаем старую клетку хвоста
+    occupied[oldTail.x][oldTail.y]--;
+
+    // отмечаем новую позицию головы
+    if (!gameOver)
+    {
+        occupied[snake[0].x][snake[0].y]++;
+    }
     // рост
     if (growCount > 0 && snakeLength < MAX_LENGTH)
     {
         snake[snakeLength] = snake[snakeLength - 1];
         snakeLength++;
+
+        // отмечаем добавленный сегмент
+        occupied[snake[snakeLength - 1].x][snake[snakeLength - 1].y]++;
+
         growCount--;
     }
 
@@ -455,6 +507,14 @@ void restartGame()
     growCount = 0;
     speed = START_SPEED;
     canChangeDirection = 1;
+
+    for (int x = 0; x < WIDTH; x++)
+    {
+        for (int y = 0; y < HEIGHT; y++)
+        {
+            occupied[x][y] = 0;
+        }
+    }
 
     initSnake();
 
@@ -727,20 +787,19 @@ int main(void)
     glLoadIdentity();
 
     srand(time(NULL));
-    // benchmarkSnakeCell();
-    // return 0;
 
-    // задаём начальное положение змейки и еды
-    initSnake();
-    spawnFood();
+    benchmarkSnakeCell();
 
-    double totalFrameTime = 0.0;
+    // сбрасываем тестовую змейку и начинаем обычную игру
+    restartGame();
+
+    double totalWorkTime = 0.0;
     unsigned long long frameCount = 0;
-    double profilingStart = glfwGetTime();
+    double measurementStart = glfwGetTime();
 
     while (!glfwWindowShouldClose(window))
     {
-        double frameStart = glfwGetTime();
+        double workStart = glfwGetTime();
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);       // очистка экрана
         double currentTime = glfwGetTime(); // текущее время
@@ -748,19 +807,6 @@ int main(void)
         if (!gameOver && currentTime - lastTime > speed)
         {
             update();
-            lastTime = currentTime;
-        }
-
-        if (!gameOver && currentTime - lastTime > speed) // если времени прошло больше чем speed
-        {
-            double start = glfwGetTime();
-
-            update();
-
-            double end = glfwGetTime();
-
-            printf("update: %.3f us\n", (end - start) * 1000000.0);
-
             lastTime = currentTime;
         }
 
@@ -778,26 +824,26 @@ int main(void)
             drawWalls();
             drawSidebar();
         }
+        // измеряем время обработки кадра без ожидания обновления экрана
+        double workEnd = glfwGetTime();
+        totalWorkTime += workEnd - workStart;
 
         glfwSwapBuffers(window); // меняет местами скрытый и отображаемый буфер кадра
         glfwPollEvents();        // обрабатывает нажатия клавиш, закрытие окна.
 
+        double measurementEnd = glfwGetTime();
 
-        double frameEnd = glfwGetTime();
-
-        totalFrameTime += frameEnd - frameStart;
         frameCount++;
 
-        if (frameEnd - profilingStart >= 5.0)
+        if (measurementEnd - measurementStart >= 5.0)
         {
-            double averageFrameTime = totalFrameTime / frameCount;
-            double fps = frameCount / totalFrameTime;
+            double averageWorkTime = totalWorkTime / frameCount;
 
-            printf("Average frame time: %.3f ms\n", averageFrameTime * 1000.0);
+            printf("Work time: %.3f ms/frame\n", averageWorkTime * 1000.0);
 
-            totalFrameTime = 0.0;
+            totalWorkTime = 0.0;
             frameCount = 0;
-            profilingStart = frameEnd;
+            measurementStart = measurementEnd;
         }
     }
 
