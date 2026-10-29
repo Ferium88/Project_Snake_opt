@@ -85,8 +85,17 @@ int score = 0;
 int growCount = 0;
 
 Segment snake[MAX_LENGTH];
-int snakeLength = 3;               // начальная длина
+int snakeLength = 3; // начальная длина
 int occupied[WIDTH][HEIGHT] = {0}; // обозначает занятость клетки по координатам
+
+// массив координат свободных клеток
+Segment freeCells[WIDTH * HEIGHT];
+
+// индекс клетки в массиве freeCells, -1 если клетка отсутствует
+int freeIndex[WIDTH][HEIGHT];
+
+// количество свободных клеток
+int freeCount = 0;
 
 double lastTime = 0;
 
@@ -264,6 +273,84 @@ int isFreeCell(int x, int y)
     return isInsideField(x, y) && !isWall(x, y) && !isSnakeCell(x, y);
 }
 
+void initFreeCells()
+{
+    freeCount = 0;
+
+    // перебираем все клетки игрового поля
+    for (int x = 0; x < WIDTH; x++)
+    {
+        for (int y = 0; y < HEIGHT; y++)
+        {
+            // изначально считаем, что клетки нет в списке
+            freeIndex[x][y] = -1;
+
+            // добавляем свободную клетку в массив
+            if (isFreeCell(x, y))
+            {
+                // запоминаем индекс свободной клетки
+                freeIndex[x][y] = freeCount;
+
+                freeCells[freeCount].x = x;
+                freeCells[freeCount].y = y;
+
+                freeCount++;
+            }
+        }
+    }
+}
+
+void removeFreeCell(int x, int y)
+{
+    // получаем индекс удаляемой клетки
+    int index = freeIndex[x][y];
+
+    // если клетки нет в списке, ничего не делаем
+    if (index == -1)
+    {
+        return;
+    }
+
+    // получаем последнюю свободную клетку
+    int lastIndex = freeCount - 1;
+    Segment lastCell = freeCells[lastIndex];
+
+    // ставим последнюю клетку на место удаляемой
+    freeCells[index] = lastCell;
+    freeIndex[lastCell.x][lastCell.y] = index;
+
+    // уменьшаем количество свободных клеток
+    freeCount--;
+
+    // отмечаем, что удалённой клетки больше нет в списке
+    freeIndex[x][y] = -1;
+}
+
+void addFreeCell(int x, int y)
+{
+    // проверяем, что клетка внутри поля и не является стеной
+    if (!isInsideField(x, y) || isWall(x, y))
+    {
+        return;
+    }
+
+    // проверяем, что клетка свободна и отсутствует в списке
+    if (occupied[x][y] > 0 || freeIndex[x][y] != -1)
+    {
+        return;
+    }
+
+    // добавляем координаты в конец массива
+    freeCells[freeCount].x = x;
+    freeCells[freeCount].y = y;
+
+    // сохраняем индекс добавленной клетки
+    freeIndex[x][y] = freeCount;
+
+    // увеличиваем количество свободных клеток
+    freeCount++;
+}
+
 void initSnake()
 {
     int ok = 0;
@@ -325,28 +412,18 @@ void initSnake()
 
 void spawnFood()
 {
-    int ok = 0;
-    int attempts = 0;
-
-    while (!ok && attempts < 1000)
-    {
-        attempts++;
-
-        food.x = rand() % WIDTH;
-        food.y = rand() % HEIGHT;
-
-        if (isFreeCell(food.x, food.y))
-        {
-            ok = 1;
-        }
-    }
-
-    // если свободное место не найдено
-    if (!ok)
+    // проверяем, остались ли свободные клетки
+    if (freeCount == 0)
     {
         gameOver = 1;
         return;
     }
+
+    // выбираем случайную свободную клетку
+    int index = rand() % freeCount;
+
+    food.x = freeCells[index].x;
+    food.y = freeCells[index].y;
 
     int r = rand() % 100;
     if (r < 60)
@@ -365,6 +442,66 @@ void spawnFood()
     {
         food.type = FOOD_SPEED;
     }
+}
+
+void benchmarkSpawnFood()
+{
+    int percentages[] = {10, 50, 90, 99};
+    int repeats = 100000;
+    unsigned long long result = 0;
+
+    GameMode oldMode = mode;
+    mode = LEVEL_WRAP;
+
+    for (int k = 0; k < 4; k++)
+    {
+        int occupiedCount = WIDTH * HEIGHT * percentages[k] / 100;
+        int cell = 0;
+
+        // задаём заполненность игрового поля
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                if (cell < occupiedCount)
+                {
+                    occupied[x][y] = 1;
+                }
+                else
+                {
+                    occupied[x][y] = 0;
+                }
+                cell++;
+            }
+        }
+
+        // формируем список свободных клеток
+        initFreeCells();
+
+        // измеряем время генерации еды
+        double start = glfwGetTime();
+
+        for (int i = 0; i < repeats; i++)
+        {
+            gameOver = 0;
+            spawnFood();
+
+            if (!gameOver)
+            {
+                result += food.x + food.y * WIDTH + food.type;
+            }
+        }
+
+        double end = glfwGetTime();
+
+        double averageTime = (end - start) * 1000000.0 / repeats;
+
+        printf("Occupied: %d%% | spawnFood: %.4f us/call\n", percentages[k], averageTime);
+    }
+
+    mode = oldMode;
+
+    printf("Result: %llu\n", result);
 }
 
 void checkSelfCollision(Segment oldTail) // проверка столкновении головы с телом
@@ -449,6 +586,7 @@ void update()
     }
     // проверка столкновения головы с телом
     checkSelfCollision(oldTail);
+    
     if (gameOver)
     {
         return;
@@ -457,11 +595,18 @@ void update()
     // освобождаем старую клетку хвоста
     occupied[oldTail.x][oldTail.y]--;
 
-    // отмечаем новую позицию головы
-    if (!gameOver)
+    // добавляем освободившуюся клетку в список
+    if (occupied[oldTail.x][oldTail.y] == 0)
     {
-        occupied[snake[0].x][snake[0].y]++;
+        addFreeCell(oldTail.x, oldTail.y);
     }
+
+    // отмечаем новую позицию головы
+    occupied[snake[0].x][snake[0].y]++;
+
+    // удаляем занятую клетку из списка
+    removeFreeCell(snake[0].x, snake[0].y);
+
     // рост
     if (growCount > 0 && snakeLength < MAX_LENGTH)
     {
@@ -517,6 +662,9 @@ void restartGame()
     }
 
     initSnake();
+
+    // формируем список свободных клеток
+    initFreeCells();
 
     lastTime = glfwGetTime();
 
@@ -788,7 +936,8 @@ int main(void)
 
     srand(time(NULL));
 
-    benchmarkSnakeCell();
+    // benchmarkSnakeCell();
+    benchmarkSpawnFood();
 
     // сбрасываем тестовую змейку и начинаем обычную игру
     restartGame();
